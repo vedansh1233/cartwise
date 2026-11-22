@@ -2,6 +2,10 @@
 
 A complete online store built with **Java 21 + Spring Boot 4** and **React 19 + TypeScript**: product catalog with search and filters, cart, checkout with real stock handling, order tracking, and an admin dashboard to manage products and orders.
 
+**Live demo:** https://web-production-0b593347.up.railway.app · **API docs:** https://api-production-ab7d6609.up.railway.app/swagger-ui.html
+
+Log in with `demo@cartwise.dev` / `Demo@1234` (customer) or `admin@cartwise.dev` / `Admin@1234` (admin).
+
 ![Cartwise home page](docs/screenshots/01-home.png)
 
 ## Features
@@ -135,6 +139,14 @@ frontend/src
 ├── api.ts     typed API client
 └── auth.tsx   login state
 ```
+
+## Deployment
+
+Deployed on Railway as three services, each built from its own Dockerfile (`backend/` and `frontend/` contain a `railway.toml`):
+
+- **api**: Spring Boot with the `postgres` profile; reads `DB_URL`, `DB_USER`, `DB_PASSWORD`, `CARTWISE_JWT_SECRET` and `CORS_ALLOWED_ORIGINS`; health check at `/actuator/health`
+- **web**: the React build served by Caddy, with `VITE_API_URL` pointing at the API
+- **Postgres**: managed PostgreSQL
 
 ## Notes
 

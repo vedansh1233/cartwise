@@ -40,6 +40,10 @@ export class ApiError extends Error {
   }
 }
 
+// In development Vite proxies /api to localhost:8080. In production the web and API are separate
+// services, so the API origin comes from VITE_API_URL at build time.
+const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+
 const TOKEN_KEY = 'cartwise.token'
 
 export const tokenStore = {
@@ -59,7 +63,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   const token = tokenStore.get()
   if (token) headers.Authorization = `Bearer ${token}`
-  const res = await fetch(`/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+  const res = await fetch(`${API_BASE}/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
   if (res.status === 401 && token) {
     tokenStore.set(null)
     window.dispatchEvent(new Event('cartwise:logout'))

@@ -2,7 +2,9 @@ package dev.vedansh.cartwise.order;
 
 import java.math.BigDecimal;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -42,12 +44,17 @@ public class OrderService {
     /**
      * Turns the user's cart into an order in one transaction: lock each product row, check stock, reserve it,
      * snapshot prices, then empty the cart. Products are locked in id order to avoid deadlocks between checkouts.
+     * The cart is read only after locking: loading products earlier would leave stale copies that conflict with the
+     * locked rows, and a repeated submit of the same cart would not see that it was already emptied.
      */
     @Transactional
     public OrderView checkout(Long userId, CheckoutRequest req) {
-        List<CartItem> cart = cartItems.findByUserIdOrderByIdAsc(userId).stream()
-                .sorted(Comparator.comparing(ci -> ci.getProduct().getId()))
-                .toList();
+        Map<Long, Product> locked = new HashMap<>();
+        for (Long productId : cartItems.findProductIdsForUser(userId)) {
+            locked.put(productId, products.findByIdForUpdate(productId)
+                    .orElseThrow(() -> ApiException.notFound("Product")));
+        }
+        List<CartItem> cart = cartItems.findByUserIdOrderByIdAsc(userId);
         if (cart.isEmpty()) {
             throw ApiException.badRequest("Your cart is empty");
         }
@@ -59,8 +66,10 @@ public class OrderService {
 
         BigDecimal subtotal = BigDecimal.ZERO;
         for (CartItem item : cart) {
-            Product product = products.findByIdForUpdate(item.getProduct().getId())
-                    .orElseThrow(() -> ApiException.notFound("Product"));
+            Product product = locked.get(item.getProduct().getId());
+            if (product == null) {
+                throw ApiException.conflict("Your cart changed during checkout, please try again");
+            }
             if (!product.isActive()) {
                 throw ApiException.conflict(product.getName() + " is no longer available");
             }
